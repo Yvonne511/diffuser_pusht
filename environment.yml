@@ -4,13 +4,17 @@ channels:
 - conda-forge
 dependencies:
 - python=3.8
-- pip
-- patchelf
+- setuptools == 63.2.0
+- wheel == 0.38.4
+- pip == 22.2.2
+- patchelf == 0.15.0.0
+- Cmake
+- cython == 0.29.36
+- numpy
 - pip:
     - -f https://download.pytorch.org/whl/torch_stable.html
-    - numpy
     - gym==0.18.0
-    - mujoco-py==2.0.2.13
+    - mujoco-py==2.0.2.5
     - matplotlib==3.3.4
     - torch==1.9.1+cu111
     - typed-argument-parser
@@ -21,7 +25,7 @@ dependencies:
     - einops
     - ffmpeg
     - ffprobe
-    - pillow
+    - pillow==7.2.0
     - tqdm
     - pandas
     - wandb
