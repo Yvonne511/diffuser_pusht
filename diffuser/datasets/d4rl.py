@@ -40,7 +40,8 @@ def load_environment(name):
     return env
 
 def get_dataset(env):
-    dataset = env.get_dataset()
+    # dataset = env.get_dataset()
+    dataset = env.get_dataset(h5path="/home/yvonne/wm/diffuser_pusht/maze2d-large-v1.hdf5")
 
     if 'antmaze' in str(env).lower():
         ## the antmaze-v0 environments have a variety of bugs
