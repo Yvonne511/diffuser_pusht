@@ -7,8 +7,8 @@ import pdb
 #-----------------------------------------------------------------------------#
 
 class Parser(utils.Parser):
-    dataset: str = 'maze2d-large-v1'
-    config: str = 'config.maze2d'
+    dataset: str = 'pusht'
+    config: str = 'config.pusht'
 
 args = Parser().parse_args('diffusion')
 

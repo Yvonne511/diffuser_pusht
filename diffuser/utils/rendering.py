@@ -350,6 +350,105 @@ class Maze2dRenderer(MazeRenderer):
             conditions /= scale
         return super().renders(observations, conditions, **kwargs)
 
+import gym
+
+def make_env_ours(dataset_name):
+    # load yaml config from conf/env/dataset_name.py
+    import yaml
+    import hydra
+    from omegaconf import OmegaConf
+    with open(f"diffuser/conf/env/{dataset_name}.yaml", "r") as f:
+        cfg = yaml.safe_load(f)
+
+    env_cfg = OmegaConf.create(cfg)
+    wrapped_env = gym.make(f"{env_cfg.name}-v0", *env_cfg.args, **env_cfg.kwargs)
+    env = wrapped_env.unwrapped
+    env.max_episode_steps = wrapped_env._max_episode_steps
+    env.name = dataset_name
+    
+    return env
+
+class PushTRenderer:
+
+    def __init__(self, env):
+        env = make_env_ours('pusht')
+        self.env = env
+        self.extent = (0, 1, 1, 0)
+        self._remove_margins = False
+
+    def renders(self, observations, title=None):
+        
+        # get image given first and last observation
+        self.env.reset()
+        self.env._set_state(observations[0])
+        self.env.set_task_goal(observations[-1][2:])
+        frame = self.env._render_frame("rgb_array")
+
+        H, W = frame.shape[:2]
+
+        obs = np.asarray(observations)
+        dot_xy = obs[:, 0:2] * 224 / 512
+        T_xy = obs[:, 2:4] * 224 / 512
+
+        plt.clf()
+        fig = plt.gcf()
+        fig.set_size_inches(5, 5)
+
+        ax = plt.gca()
+        ax.imshow(frame, extent=(0, W, H, 0))
+
+        path_length = len(obs)
+
+        # ----- plot tracks on top -----
+        colors_T = plt.cm.Blues(np.linspace(0.3, 0.9, path_length))
+        colors_T[:, -1] = 0.7
+
+        colors_dot = plt.cm.Reds(np.linspace(0.5, 1.0, path_length))
+        colors_dot[:, -1] = 0.95 
+
+        ax.plot(T_xy[:, 0], T_xy[:, 1], color="blue", alpha=0.5, linewidth=2, zorder=10)
+        ax.scatter(T_xy[:, 0], T_xy[:, 1], c=colors_T, s=18, zorder=20, label="T")
+
+        ax.plot(dot_xy[:, 0], dot_xy[:, 1], color="darkred", alpha=0.9, linewidth=2.5, zorder=10)
+        ax.scatter(dot_xy[:, 0], dot_xy[:, 1], c=colors_dot, s=22, zorder=20, label="dot")
+
+        ax.scatter([T_xy[0, 0]],  [T_xy[0, 1]],  marker="o", s=80, color="lightblue", zorder=30)
+        ax.scatter([T_xy[-1, 0]], [T_xy[-1, 1]], marker="X", s=100, color="blue", zorder=30)
+
+        ax.scatter([dot_xy[0, 0]],  [dot_xy[0, 1]],  marker="o", s=80, color="salmon", zorder=30)
+        ax.scatter([dot_xy[-1, 0]], [dot_xy[-1, 1]], marker="X", s=100, color="darkred", zorder=30)
+        
+        # lock to image coords so overlay doesn't autoscale weirdly
+        ax.set_xlim(0, W)
+        ax.set_ylim(H, 0)
+
+        ax.set_aspect("equal", adjustable="box")
+        ax.axis("off")
+        if title is not None:
+            ax.set_title(title)
+
+        img = plot2img(fig, remove_margins=self._remove_margins)
+        return img
+
+    def composite(self, savepath, paths, ncol=5, **kwargs):
+        '''
+            savepath : str
+            observations : [ n_paths x horizon x 2 ]
+        '''
+        assert len(paths) % ncol == 0, 'Number of paths must be divisible by number of columns'
+
+        images = []
+        for path, kw in zipkw(paths, **kwargs):
+            img = self.renders(*path, **kw)
+            images.append(img)
+        images = np.stack(images, axis=0)
+
+        nrow = len(images) // ncol
+        images = einops.rearrange(images,
+            '(nrow ncol) H W C -> (nrow H) (ncol W) C', nrow=nrow, ncol=ncol)
+        imageio.imsave(savepath, images)
+        print(f'Saved {len(paths)} samples to: {savepath}')
+
 #-----------------------------------------------------------------------------#
 #---------------------------------- rollouts ---------------------------------#
 #-----------------------------------------------------------------------------#

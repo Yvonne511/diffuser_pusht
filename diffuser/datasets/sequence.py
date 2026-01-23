@@ -4,24 +4,60 @@ import torch
 import pdb
 
 from .preprocessing import get_preprocess_fn
-from .d4rl import load_environment, sequence_dataset
+from .d4rl import sequence_dataset
+from diffuser import env_ours
+import gym
 from .normalization import DatasetNormalizer
 from .buffer import ReplayBuffer
 
 Batch = namedtuple('Batch', 'trajectories conditions')
 ValueBatch = namedtuple('ValueBatch', 'trajectories conditions values')
 
+def make_env_and_datasets_ours(dataset_name):
+    # load yaml config from conf/env/dataset_name.py
+    import yaml
+    import hydra
+    from omegaconf import OmegaConf
+    with open(f"diffuser/conf/env/{dataset_name}.yaml", "r") as f:
+        cfg = yaml.safe_load(f)
+
+    env_cfg = OmegaConf.create(cfg)
+    wrapped_env = gym.make(f"{env_cfg.name}-v0", *env_cfg.args, **env_cfg.kwargs)
+    env = wrapped_env.unwrapped
+    env.max_episode_steps = wrapped_env._max_episode_steps
+    env.name = dataset_name
+    dsets, orig_dset = hydra.utils.call(env_cfg.dataset)
+    return env, dsets, orig_dset
+
+def sequence_dataset_ours(train_dset, preprocess_fn):
+    for ep in range(len(train_dset)):
+        T = train_dset.get_seq_length(ep)
+        obs, act, state, _ = train_dset[ep]
+        obs_ep = obs["visual"].numpy().astype(np.float32)
+        act_ep = act.numpy().astype(np.float32)
+        state_ep = state.numpy().astype(np.float32)
+        # reward_ep = np.zeros((T, 1), dtype=np.float32)
+        term_ep = np.zeros((T, 1),dtype=np.bool_)
+        episode = {
+            'observations': obs_ep,
+            'actions': act_ep,
+            'terminals': term_ep,
+        }
+        episode = preprocess_fn(episode)
+        yield episode
+
 class SequenceDataset(torch.utils.data.Dataset):
 
     def __init__(self, env='hopper-medium-replay', horizon=64,
         normalizer='LimitsNormalizer', preprocess_fns=[], max_path_length=1000,
-        max_n_episodes=10000, termination_penalty=0, use_padding=True):
+        max_n_episodes=18685, termination_penalty=0, use_padding=True):
         self.preprocess_fn = get_preprocess_fn(preprocess_fns, env)
-        self.env = env = load_environment(env)
+        env, dsets, orig_dset = make_env_and_datasets_ours(env)
+        self.env = env
         self.horizon = horizon
         self.max_path_length = max_path_length
         self.use_padding = use_padding
-        itr = sequence_dataset(env, self.preprocess_fn)
+        itr = sequence_dataset_ours(orig_dset["train"], self.preprocess_fn)
 
         fields = ReplayBuffer(max_n_episodes, max_path_length, termination_penalty)
         for i, episode in enumerate(itr):

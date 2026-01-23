@@ -1,0 +1,1 @@
+from diffuser.datasets_ours.pusht_dset import load_pusht_slice_train_val
