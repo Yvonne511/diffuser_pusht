@@ -6,11 +6,17 @@ import pdb
 from diffuser.guides.policies import Policy
 import diffuser.datasets as datasets
 import diffuser.utils as utils
+from diffuser.env_ours.venv import SubprocVectorEnv
+from diffuser.env_ours.utils import seed
+import gym
+import random
+from einops import rearrange
+import torch
 
 
 class Parser(utils.Parser):
-    dataset: str = 'maze2d-umaze-v1'
-    config: str = 'config.maze2d'
+    dataset: str = 'pusht'
+    config: str = 'config.pusht'
 
 #---------------------------------- setup ----------------------------------#
 
@@ -18,7 +24,155 @@ args = Parser().parse_args('plan')
 
 # logger = utils.Logger(args)
 
-env = datasets.load_environment(args.dataset)
+goal_source = "dset" # "random_state", "dset", "fix_goal"
+n_evals = 50
+s = 99
+frameskip= 1
+goal_H = 128
+seed(s)
+
+def make_env_and_datasets_ours(dataset_name):
+    # load yaml config from conf/env/dataset_name.py
+    import yaml
+    import hydra
+    from omegaconf import OmegaConf
+    with open(f"diffuser/conf/env/{dataset_name}.yaml", "r") as f:
+        cfg = yaml.safe_load(f)
+
+    env_cfg = OmegaConf.create(cfg)
+    
+    if env_cfg.name == "wall" or env_cfg.name == "deformable_env" or "point_maze" in env_cfg.name:
+        from env.serial_vector_env import SerialVectorEnv
+        env = SerialVectorEnv(
+            [
+                gym.make(
+                    f"{env_cfg.name}-v0", *env_cfg.args, **env_cfg.kwargs
+                )
+                for _ in range(n_evals)
+            ]
+        )
+    else:
+        env = SubprocVectorEnv(
+            [
+                lambda: gym.make(
+                    f"{env_cfg.name}-v0", *env_cfg.args, **env_cfg.kwargs
+                )
+                for _ in range(n_evals)
+            ]
+        )
+
+    dsets, orig_dset = hydra.utils.call(env_cfg.dataset)
+    return env, dsets, orig_dset
+
+env, dsets, orig_dset = make_env_and_datasets_ours(args.dataset)
+dset = orig_dset['valid']
+eval_seed = [s * n + 1 for n in range(n_evals)]
+
+def prepare_targets():
+    states = []
+    actions = []
+    observations = []
+    
+    if goal_source == "random_state" or goal_source == "fix_goal":
+        # update env config from val trajs
+        observations, states, actions, env_info = (
+            sample_traj_segment_from_dset(traj_len=2)
+        )
+        env.update_env(env_info)
+
+        # sample random states
+        fix_goal = goal_source == "fix_goal"
+        rand_init_state, rand_goal_state = env.sample_random_init_goal_states(
+            eval_seed, fix_goal=fix_goal
+        )
+        if args.dataset == "deformable_env": # take rand init state from dset for deformable envs
+            rand_init_state = np.array([x[0] for x in states])
+
+        obs_0, state_0 = env.prepare(eval_seed, rand_init_state)
+        obs_g, state_g = env.prepare(eval_seed, rand_goal_state)
+
+        # add dim for t
+        for k in obs_0.keys():
+            obs_0[k] = np.expand_dims(obs_0[k], axis=1)
+            obs_g[k] = np.expand_dims(obs_g[k], axis=1)
+
+        obs_0 = obs_0
+        obs_g = obs_g
+        state_0 = rand_init_state  # (b, d)
+        state_g = rand_goal_state
+        gt_actions = None
+        return obs_0, obs_g, state_0, state_g, gt_actions
+    else:
+        # update env config from val trajs
+        observations, states, actions, env_info = (
+            sample_traj_segment_from_dset(traj_len=frameskip * goal_H + 1)
+        )
+        env.update_env(env_info)
+
+        # get states from val trajs
+        init_state = [x[0] for x in states]
+        init_state = np.array(init_state)
+        actions = torch.stack(actions)
+        if goal_source == "random_action":
+            actions = torch.randn_like(actions)
+        wm_actions = rearrange(actions, "b (t f) d -> b t (f d)", f=frameskip)
+        # exec_actions = self.data_preprocessor.denormalize_actions(actions)
+        exec_actions = actions # actions not normalized in dataloader
+        # replay actions in env to get gt obses
+        rollout_obses, rollout_states = env.rollout(
+            eval_seed, init_state, exec_actions.numpy()
+        )
+        obs_0 = {
+            key: np.expand_dims(arr[:, 0], axis=1)
+            for key, arr in rollout_obses.items()
+        }
+        obs_g = {
+            key: np.expand_dims(arr[:, -1], axis=1)
+            for key, arr in rollout_obses.items()
+        }
+        state_0 = init_state  # (b, d)
+        state_g = rollout_states[:, -1]  # (b, d)
+        gt_actions = wm_actions
+        return obs_0, obs_g, state_0, state_g, gt_actions
+
+def sample_traj_segment_from_dset(traj_len):
+    states = []
+    actions = []
+    observations = []
+    env_info = []
+
+    # Check if any trajectory is long enough
+    valid_traj = [
+        i
+        for i in range(len(dset))
+        if dset.get_seq_length(i) >= traj_len
+    ]
+    if len(valid_traj) == 0:
+        raise ValueError("No trajectory in the dataset is long enough.")
+
+    # sample init_states from dset
+    for i in range(n_evals):
+        max_offset = -1
+        while max_offset < 0:  # filter out traj that are not long enough
+            traj_id = random.randint(0, len(dset) - 1)
+            obs, act, state, e_info = dset[traj_id]
+            max_offset = obs["visual"].shape[0] - traj_len
+        state = state.numpy()
+        offset = random.randint(0, max_offset)
+        print(f"traj {traj_id}  offset {offset} ")
+        obs = {
+            key: arr[offset : offset + traj_len]
+            for key, arr in obs.items()
+        }
+        state = state[offset : offset + traj_len]
+        act = act[offset : offset + traj_len - 1]
+        actions.append(act)
+        states.append(state)
+        observations.append(obs)
+        env_info.append(e_info)
+    return observations, states, actions, env_info
+
+obs_0, obs_g, state_0, state_g, gt_actions = prepare_targets()
 
 #---------------------------------- loading ----------------------------------#
 
@@ -32,104 +186,38 @@ policy = Policy(diffusion, dataset.normalizer)
 
 #---------------------------------- main loop ----------------------------------#
 
-observation = env.reset()
+exec_actions = []
+for i in range(n_evals):
+    cond = {
+        0: obs_0['visual'][i, 0],
+        diffusion.horizon - 1: obs_g['visual'][i, 0],
+    }
+    action, samples = policy(cond, batch_size=1)
+    actions = samples.actions[0]
+    sequence = samples.observations[0]
 
-if args.conditional:
-    print('Resetting target')
-    env.set_target()
+    exec_actions.append(actions)
 
-## set conditioning xy position to be the goal
-target = env._target
-cond = {
-    diffusion.horizon - 1: np.array([*target, 0, 0]),
+    fullpath = join(args.savepath, f'{i}.png')
+    renderer.composite(fullpath, samples.observations, ncol=1)
+
+exec_actions = np.stack(exec_actions, axis=0)
+e_obses, e_states = env.rollout(eval_seed, state_0, exec_actions)
+
+
+for i in range(n_evals):
+    rollout = e_obses['visual'][i:i+1]
+    renderer.composite(join(args.savepath, f'{i}_rollout.png'), rollout, ncol=1)
+
+e_final_state = e_states[:, -1, :]
+eval_results = env.eval_state(state_g, e_final_state)
+successes = eval_results['success']
+
+logs = {
+    f"success_rate" if key == "success" else f"mean_{key}": np.mean(value) if key != "success" else np.mean(value.astype(float))
+    for key, value in eval_results.items()
 }
 
-## observations for rendering
-rollout = [observation.copy()]
-
-total_reward = 0
-for t in range(env.max_episode_steps):
-
-    state = env.state_vector().copy()
-
-    ## can replan if desired, but the open-loop plans are good enough for maze2d
-    ## that we really only need to plan once
-    if t == 0:
-        cond[0] = observation
-
-        action, samples = policy(cond, batch_size=args.batch_size)
-        actions = samples.actions[0]
-        sequence = samples.observations[0]
-    # pdb.set_trace()
-
-    # ####
-    if t < len(sequence) - 1:
-        next_waypoint = sequence[t+1]
-    else:
-        next_waypoint = sequence[-1].copy()
-        next_waypoint[2:] = 0
-        # pdb.set_trace()
-
-    ## can use actions or define a simple controller based on state predictions
-    action = next_waypoint[:2] - state[:2] + (next_waypoint[2:] - state[2:])
-    # pdb.set_trace()
-    ####
-
-    # else:
-    #     actions = actions[1:]
-    #     if len(actions) > 1:
-    #         action = actions[0]
-    #     else:
-    #         # action = np.zeros(2)
-    #         action = -state[2:]
-    #         pdb.set_trace()
-
-
-
-    next_observation, reward, terminal, _ = env.step(action)
-    total_reward += reward
-    score = env.get_normalized_score(total_reward)
-    print(
-        f't: {t} | r: {reward:.2f} |  R: {total_reward:.2f} | score: {score:.4f} | '
-        f'{action}'
-    )
-
-    if 'maze2d' in args.dataset:
-        xy = next_observation[:2]
-        goal = env.unwrapped._target
-        print(
-            f'maze | pos: {xy} | goal: {goal}'
-        )
-
-    ## update rollout observations
-    rollout.append(next_observation.copy())
-
-    # logger.log(score=score, step=t)
-
-    if t % args.vis_freq == 0 or terminal:
-        fullpath = join(args.savepath, f'{t}.png')
-
-        if t == 0: renderer.composite(fullpath, samples.observations, ncol=1)
-
-
-        # renderer.render_plan(join(args.savepath, f'{t}_plan.mp4'), samples.actions, samples.observations, state)
-
-        ## save rollout thus far
-        renderer.composite(join(args.savepath, 'rollout.png'), np.array(rollout)[None], ncol=1)
-
-        # renderer.render_rollout(join(args.savepath, f'rollout.mp4'), rollout, fps=80)
-
-        # logger.video(rollout=join(args.savepath, f'rollout.mp4'), plan=join(args.savepath, f'{t}_plan.mp4'), step=t)
-
-    if terminal:
-        break
-
-    observation = next_observation
-
-# logger.finish(t, env.max_episode_steps, score=score, value=0)
-
-## save result as a json file
-json_path = join(args.savepath, 'rollout.json')
-json_data = {'score': score, 'step': t, 'return': total_reward, 'term': terminal,
-    'epoch_diffusion': diffusion_experiment.epoch}
-json.dump(json_data, open(json_path, 'w'), indent=2, sort_keys=True)
+# save logs
+with open(join(args.savepath, 'eval_logs.json'), 'w') as f:
+    json.dump(logs, f, indent=4, default=float)

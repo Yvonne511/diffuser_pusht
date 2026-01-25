@@ -23,7 +23,7 @@ class PushTWrapper(PushTEnv):
         print(f"PushT with_velocity: {self.with_velocity}  with_target: {self.with_target}  state_based: {self.state_based}")
         self.action_dim = self.action_space.shape[0]
     
-    def sample_random_init_goal_states(self, seed):
+    def sample_random_init_goal_states(self, seed, fix_goal=False):
         """
         Return two random states: one as the initial state and one as the goal state.
         """
@@ -49,7 +49,11 @@ class PushTWrapper(PushTEnv):
             return state
         
         init_state = generate_state()
-        goal_state = generate_state()
+        if fix_goal:
+            angle = np.pi / 4
+            goal_state = np.array([200, 200, 256, 256] + ([np.sin(angle), np.cos(angle)] if self.use_sin_cos else [angle]) + ([0, 0] if self.with_velocity else []), dtype=np.float32)
+        else:   
+            goal_state = generate_state()
         
         return init_state, goal_state
     
