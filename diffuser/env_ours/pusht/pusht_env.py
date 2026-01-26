@@ -492,6 +492,60 @@ class PushTEnv(gym.Env):
             "proprio": proprio
         }
         return observation, state
+    
+    def step_zero_actions(self):
+        dt = 1.0 / self.sim_hz
+        self.n_contact_points = 0
+        n_steps = self.sim_hz // self.control_hz
+
+        action = np.zeros(2)
+        action = self.agent.position + action
+        self.latest_action = action
+        for i in range(n_steps):
+            # Step PD control.
+            # self.agent.velocity = self.k_p * (act - self.agent.position)    # P control works too.
+            acceleration = self.k_p * (action - self.agent.position) + self.k_v * (
+                Vec2d(0, 0) - self.agent.velocity
+            )
+            self.agent.velocity += acceleration * dt
+
+            # Step physics.
+            self.space.step(dt)
+
+        # compute reward
+        goal_body = self._get_goal_pose_body(self.goal_pose)
+        goal_geom = pymunk_to_shapely(goal_body, self.block.shapes)
+        block_geom = pymunk_to_shapely(self.block, self.block.shapes)
+
+        intersection_area = goal_geom.intersection(block_geom).area
+        goal_area = goal_geom.area
+        coverage = intersection_area / goal_area
+        reward = np.clip(coverage / self.success_threshold, 0, 1)
+        done = False  # coverage > self.success_threshold
+
+        self.coverage_arr.append(coverage)
+
+        state = self._get_obs()
+        if self.state_based:
+            visual = state
+        else:
+            visual = self._render_frame("rgb_array")
+        proprio = state[:2]
+        if self.with_velocity:
+            proprio = np.concatenate((proprio, state[-2:]))
+        observation = {
+            "visual": visual,
+            "proprio": proprio
+        }
+        # observation = (
+        #     einops.rearrange(observation, "H W C -> 1 C H W") / 255.0
+        # )  # VCHW, range [0, 1]
+        info = self._get_info()
+        info["state"] = state
+        info["max_coverage"] = max(self.coverage_arr)
+        info["final_coverage"] = self.coverage_arr[-1]
+
+        return observation, reward, done, info
 
     def step_zero_actions(self):
         dt = 1.0 / self.sim_hz
