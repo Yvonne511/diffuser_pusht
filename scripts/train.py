@@ -87,6 +87,7 @@ trainer_config = utils.Config(
     bucket=args.bucket,
     n_reference=args.n_reference,
     n_samples=args.n_samples,
+    data_aug=getattr(args, "data_aug", False),
 )
 
 #-----------------------------------------------------------------------------#

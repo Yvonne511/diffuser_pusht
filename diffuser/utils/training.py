@@ -53,6 +53,7 @@ class Trainer(object):
         n_reference=8,
         n_samples=2,
         bucket=None,
+        data_aug=False,
     ):
         super().__init__()
         self.model = diffusion_model
@@ -77,6 +78,7 @@ class Trainer(object):
         self.dataloader_vis = cycle(torch.utils.data.DataLoader(
             self.dataset, batch_size=1, num_workers=0, shuffle=True, pin_memory=True
         ))
+        self.data_aug = data_aug
         self.renderer = renderer
         self.optimizer = torch.optim.Adam(diffusion_model.parameters(), lr=train_lr)
 
@@ -107,6 +109,23 @@ class Trainer(object):
         for step in range(n_train_steps):
             for i in range(self.gradient_accumulate_every):
                 batch = next(self.dataloader)
+                from diffuser.datasets_ours.augmentations import pusht_data_augmentation
+                if self.data_aug:
+                    # trajectories = np.concatenate([actions, observations], axis=-1)
+                    # batch['trajectories']: 2 action_dim, 8 state_dim
+                    obs, act = batch.trajectories[..., 2:], batch.trajectories[..., :2]
+                    obs = self.dataset.normalizer.unnormalize(obs, "observations")
+                    act = self.dataset.normalizer.unnormalize(act, "actions")
+                    obs_aug, act_aug = pusht_data_augmentation(
+                        obs, # states
+                        acts=act, # actions
+                    )
+                    obs_aug = self.dataset.normalizer.normalize(obs_aug, "observations")
+                    act_aug = self.dataset.normalizer.normalize(act_aug, "actions")
+                    traj_aug = torch.cat([act_aug, obs_aug], dim=-1)
+                    cond = dict(batch.conditions)
+                    for t in cond.keys(): cond[t] = obs_aug[:, t]
+                    batch = batch._replace(trajectories=traj_aug, conditions=cond)
                 batch = batch_to_device(batch)
 
                 loss, infos = self.model.loss(*batch)
@@ -176,6 +195,23 @@ class Trainer(object):
             self.dataset, batch_size=batch_size, num_workers=0, shuffle=True, pin_memory=True
         ))
         batch = dataloader_tmp.__next__()
+        from diffuser.datasets_ours.augmentations import pusht_data_augmentation
+        if self.data_aug:
+            # trajectories = np.concatenate([actions, observations], axis=-1)
+            # batch['trajectories']: 2 action_dim, 8 state_dim
+            obs, act = batch.trajectories[..., 2:], batch.trajectories[..., :2]
+            obs = self.dataset.normalizer.unnormalize(obs, "observations")
+            act = self.dataset.normalizer.unnormalize(act, "actions")
+            obs_aug, act_aug = pusht_data_augmentation(
+                obs, # states
+                acts=act, # actions
+            )
+            obs_aug = self.dataset.normalizer.normalize(obs_aug, "observations")
+            act_aug = self.dataset.normalizer.normalize(act_aug, "actions")
+            traj_aug = torch.cat([act_aug, obs_aug], dim=-1)
+            cond = dict(batch.conditions)
+            for t in cond.keys(): cond[t] = obs_aug[:, t]
+            batch = batch._replace(trajectories=traj_aug, conditions=cond)
         dataloader_tmp.close()
 
         ## get trajectories and condition at t=0 from batch

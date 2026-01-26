@@ -11,6 +11,7 @@ diffusion_args_to_watch = [
     ('prefix', ''),
     ('horizon', 'H'),
     ('n_diffusion_steps', 'T'),
+    ('data_aug', 'aug'),
 ]
 
 
@@ -72,6 +73,7 @@ base = {
         'n_samples': 10,
         'bucket': None,
         'device': 'cuda',
+        'data_aug': True,
     },
 
     'plan': {
@@ -91,9 +93,10 @@ base = {
         'suffix': '0',
 
         'conditional': False,
+        'data_aug': True,
 
         ## loading
-        'diffusion_loadpath': 'f:diffusion/H{horizon}_T{n_diffusion_steps}',
+        'diffusion_loadpath': 'f:diffusion/H{horizon}_T{n_diffusion_steps}_aug{data_aug}',
         'diffusion_epoch': 'latest',
     },
 
@@ -114,10 +117,12 @@ pusht = {
     'diffusion': {
         'horizon': 128,
         'n_diffusion_steps': 256,
+        'data_aug': True,
     },
     'plan': {
         'horizon': 128,
         'n_diffusion_steps': 256,
+        'data_aug': True,
     },
 }
 
