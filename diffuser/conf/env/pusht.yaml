@@ -1,0 +1,23 @@
+name: pusht
+args: []
+kwargs: 
+  with_velocity: true
+  with_target: true
+  state_based: true
+  use_sin_cos: true
+
+dataset:
+  _target_: "diffuser.datasets_ours.load_pusht_slice_train_val"
+  with_velocity: true
+  n_rollout: null
+  normalize_action: false
+  use_sin_cos: true
+  state_based: true
+  data_path: ${oc.env:DATASET_DIR}/pusht_noise
+  split_ratio: 0.9
+  transform:
+    _target_: "diffuser.datasets_ours.img_transforms.default_transform"
+    img_size: 224
+
+decoder_path: null
+num_workers: 16
