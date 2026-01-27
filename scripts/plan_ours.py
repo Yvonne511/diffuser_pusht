@@ -42,7 +42,7 @@ def make_env_and_datasets_ours(dataset_name):
     env_cfg = OmegaConf.create(cfg)
     
     if env_cfg.name == "wall" or env_cfg.name == "deformable_env" or "point_maze" in env_cfg.name:
-        from env.serial_vector_env import SerialVectorEnv
+        from diffuser.env_ours.serial_vector_env import SerialVectorEnv
         env = SerialVectorEnv(
             [
                 gym.make(
