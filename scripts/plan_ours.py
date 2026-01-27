@@ -17,6 +17,8 @@ import torch
 class Parser(utils.Parser):
     dataset: str = 'pusht'
     config: str = 'config.pusht'
+    goal_source: str = 'dset'  # "random_state", "dset", "fix_goal"
+    n_evals: int = 50
 
 #---------------------------------- setup ----------------------------------#
 
@@ -24,11 +26,11 @@ args = Parser().parse_args('plan')
 
 # logger = utils.Logger(args)
 
-goal_source = "dset" # "random_state", "dset", "fix_goal"
-n_evals = 50
+goal_source = args.goal_source
+n_evals = args.n_evals
 s = 99
 frameskip= 1
-goal_H = 128
+goal_H = args.horizon
 seed(s)
 
 def make_env_and_datasets_ours(dataset_name):
