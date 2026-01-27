@@ -30,7 +30,7 @@ class PointMazeWrapper(MazeEnv):
         rs = np.random.RandomState(seed)
 
         def generate_state():
-            if self.spec.name in ('point_maze_medium', 'point_maze_large'):
+            if self.spec.id in ('point_maze_medium-v0', 'point_maze_large-v0'):
                 x, y = self.sample_random_xy()
                 state = np.array([
                     x, 
