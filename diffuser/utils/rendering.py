@@ -503,6 +503,78 @@ class WallRenderer:
         imageio.imsave(savepath, images)
         print(f'Saved {len(paths)} samples to: {savepath}')
 
+
+class PointMazeRenderer:
+
+    def __init__(self, env):
+        self.env_name = env
+        env = gym.make(f"{env}-v0")
+        self.env = env
+        self.extent = (0, 1, 1, 0)
+        self._remove_margins = False
+
+    def renders(self, observations, title=None):
+        
+        # get image given first and last observation
+        self.env.prepare_for_render()
+        self.env.set_init_state(observations[0])
+        self.env.reset()
+        frame = self.env.unwrapped._render_frame()
+
+        H, W = frame.shape[:2]
+
+        obs = np.asarray(observations)
+        obs = obs * 224 / 65
+
+        plt.clf()
+        fig = plt.gcf()
+        fig.set_size_inches(5, 5)
+
+        ax = plt.gca()
+        ax.imshow(frame, extent=(0, W, H, 0))
+
+        path_length = len(obs)
+
+        # ----- plot tracks on top -----
+        colors_T = plt.cm.Blues(np.linspace(0.3, 0.9, path_length))
+
+        ax.plot(obs[:, 0], obs[:, 1], color="blue", alpha=0.5, linewidth=2, zorder=10)
+        ax.scatter(obs[:, 0], obs[:, 1], c=colors_T, s=18, zorder=20, label="T")
+
+        ax.scatter([obs[0, 0]],  [obs[0, 1]],  marker="o", s=80, color="lightblue", zorder=30)
+        ax.scatter([obs[-1, 0]], [obs[-1, 1]], marker="X", s=100, color="blue", zorder=30)
+        
+        # lock to image coords so overlay doesn't autoscale weirdly
+        ax.set_xlim(0, W)
+        ax.set_ylim(H, 0)
+
+        ax.set_aspect("equal", adjustable="box")
+        ax.axis("off")
+        if title is not None:
+            ax.set_title(title)
+
+        img = plot2img(fig, remove_margins=self._remove_margins)
+        return img
+
+    def composite(self, savepath, paths, ncol=5, **kwargs):
+        '''
+            savepath : str
+            observations : [ n_paths x horizon x 2 ]
+        '''
+        assert len(paths) % ncol == 0, 'Number of paths must be divisible by number of columns'
+
+        images = []
+        for path, kw in zipkw(paths, **kwargs):
+            img = self.renders(*path, **kw)
+            images.append(img)
+        images = np.stack(images, axis=0)
+
+        nrow = len(images) // ncol
+        images = einops.rearrange(images,
+            '(nrow ncol) H W C -> (nrow H) (ncol W) C', nrow=nrow, ncol=ncol)
+        imageio.imsave(savepath, images)
+        print(f'Saved {len(paths)} samples to: {savepath}')
+
 #-----------------------------------------------------------------------------#
 #---------------------------------- rollouts ---------------------------------#
 #-----------------------------------------------------------------------------#
