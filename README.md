@@ -1,3 +1,42 @@
+# Ours
+### Installation
+```
+conda env create -f environment.yml
+conda activate diffusion
+pip install -e .
+pip install hydra-core==1.2.0 pymunk==6.8.0 pygame==2.5.2 shapely==2.0.3 opencv-python==4.6.0.66 psutil==5.9.8 decord==0.6.0 torchvision==0.18.0
+```
+
+### Command
+```
+export DATASET_DIR=/data/datasets
+```
+PushT Command
+```
+python scripts/train.py --config config.pusht --dataset pusht
+python scripts/plan_ours.py --dataset pusht --goal_source fixed_goal --n_evals 50
+```
+Wall Command
+```
+python scripts/train.py --config config.wall --dataset wall
+python scripts/plan_ours.py --config config.wall --dataset wall --goal_source dset --n_evals 50
+```
+Point_maze Command
+```
+python scripts/train.py --config config.point_maze --dataset point_maze
+python scripts/plan_ours.py --config config.point_maze --dataset point_maze --goal_source dset --n_evals 50
+```
+Point_maze_medium Command
+```
+python scripts/train.py --config config.point_maze_medium --dataset point_maze_medium
+python scripts/plan_ours.py --config config.point_maze_medium --dataset point_maze_medium --goal_source dset --n_evals 50
+```
+Point_maze_large Command
+```
+python scripts/train.py --config config.point_maze_large --dataset point_maze_large
+python scripts/plan_ours.py --config config.point_maze_large --dataset point_maze_large --goal_source random_state --n_evals 10
+```
+
 # Planning with Diffusion &nbsp;&nbsp; [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1YajKhu-CUIGBJeQPehjVPJcK_b38a8Nc?usp=sharing)
 
 
