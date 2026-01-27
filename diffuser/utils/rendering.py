@@ -503,6 +503,12 @@ class WallRenderer:
         imageio.imsave(savepath, images)
         print(f'Saved {len(paths)} samples to: {savepath}')
 
+point_maze_scale = {
+    # 'point_maze': (7.5, 56, 55),
+    'point_maze': (7.5, 56.5, 68),
+    'point_maze_medium': (10, 48, 48),
+    'point_maze_large': (13.4, 48, 30),
+}
 
 class PointMazeRenderer:
 
@@ -519,12 +525,13 @@ class PointMazeRenderer:
         self.env.prepare_for_render()
         self.env.set_init_state(observations[0])
         self.env.reset()
-        frame = self.env.unwrapped._render_frame()
+        frame = self.env.unwrapped._render_frame().astype(np.uint8)
 
         H, W = frame.shape[:2]
 
-        obs = np.asarray(observations)
-        obs = obs * 224 / 65
+        scale, x_offset, y_offset = point_maze_scale[self.env_name]
+        obs = np.asarray(observations)[..., :2]
+        obs = obs * 224 / scale + np.array([x_offset, y_offset])
 
         plt.clf()
         fig = plt.gcf()
