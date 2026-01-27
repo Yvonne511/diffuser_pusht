@@ -1,0 +1,19 @@
+name: wall
+args: []
+kwargs:
+  state_based: true
+
+dataset:
+  _target_: "diffuser.datasets_ours.wall_dset.load_wall_slice_train_val"
+  n_rollout: null
+  normalize_action: false
+  state_based: true
+  data_path: ${oc.env:DATASET_DIR}/wall_single_new
+  split_ratio: 0.9
+  split_mode: "random"
+  transform:
+    _target_: "diffuser.datasets_ours.img_transforms.default_transform"
+    img_size: 224
+
+decoder_path: null
+num_workers: 16
