@@ -25,6 +25,8 @@ plan_args_to_watch = [
     ('batch_size', 'b'),
     ##
     ('conditional', 'cond'),
+    ('goal_source', ''),
+    ('n_evals', ''),
 ]
 
 base = {
