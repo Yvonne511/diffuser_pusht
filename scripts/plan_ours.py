@@ -121,7 +121,7 @@ def prepare_targets():
         # exec_actions = self.data_preprocessor.denormalize_actions(actions)
         exec_actions = actions # actions not normalized in dataloader
         # replay actions in env to get gt obses
-        rollout_obses, rollout_states = env.rollout(
+        rollout_obses, rollout_states, infos = env.rollout(
             eval_seed, init_state, exec_actions.numpy()
         )
         obs_0 = {
@@ -204,7 +204,9 @@ for i in range(n_evals):
     renderer.composite(fullpath, samples.observations, ncol=1)
 
 exec_actions = np.stack(exec_actions, axis=0)
-e_obses, e_states = env.rollout(eval_seed, state_0, exec_actions)
+env.prepare(eval_seed, state_0)
+env.set_task_goal(state_g)
+e_obses, e_states, infos = env.rollout(eval_seed, state_0, exec_actions)
 
 
 for i in range(n_evals):
@@ -219,6 +221,10 @@ logs = {
     f"success_rate" if key == "success" else f"mean_{key}": np.mean(value) if key != "success" else np.mean(value.astype(float))
     for key, value in eval_results.items()
 }
+
+if args.dataset == 'pusht':
+    logs["avg_max_coverage"] = np.mean(infos['max_coverage'][:, -1])
+    logs["avg_final_coverage"] = np.mean(infos['final_coverage'][:, -1])
 
 # save logs
 with open(join(args.savepath, 'eval_logs.json'), 'w') as f:

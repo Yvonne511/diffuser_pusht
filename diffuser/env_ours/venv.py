@@ -305,6 +305,8 @@ def _worker(
                 p.send(env.eval_state(data[0], data[1])) 
             elif cmd == "update_env":
                 p.send(env.update_env(data))
+            elif cmd == "set_task_goal":
+                p.send(env.set_task_goal(data))
             else:
                 p.close()
                 raise NotImplementedError
@@ -545,6 +547,10 @@ class SubprocEnvWorker(EnvWorker):
         if self.share_memory:
             obs = self._decode_obs()
         return obs
+    
+    def set_task_goal(self, goal_state):
+        self.parent_remote.send(["set_task_goal", goal_state])
+        return self.parent_remote.recv()
 
 
 ################################################################################
@@ -879,10 +885,11 @@ class BaseVectorEnv(object):
                 result.append(env_return)
         else:
             raise NotImplementedError
-        obses, states = tuple(zip(*result))
+        obses, states, infos = tuple(zip(*result))
         obses = aggregate_dct(obses)
+        infos = aggregate_dct(infos)
         states = np.stack(states)
-        return obses, states
+        return obses, states, infos
     
     def prepare(self, seeds, init_states, stabilize=False):
         self._assert_is_not_closed()
@@ -895,6 +902,11 @@ class BaseVectorEnv(object):
         obs = aggregate_dct(obs_list)
         state = np.stack(state)
         return obs, state
+
+    def set_task_goal(self, goal_state):
+        self._assert_is_not_closed()
+        for i in range(self.env_num):
+            self.workers[i].set_task_goal(goal_state[i])
 
     def sample_random_init_goal_states(self, seed, fix_goal=False):
         self._assert_is_not_closed()
