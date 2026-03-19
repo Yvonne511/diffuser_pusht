@@ -2,6 +2,7 @@ import json
 import numpy as np
 from os.path import join
 import pdb
+import imageio
 
 from diffuser.guides.policies import Policy
 import diffuser.datasets as datasets
@@ -17,7 +18,7 @@ import torch
 class Parser(utils.Parser):
     dataset: str = 'pusht'
     config: str = 'config.pusht'
-    goal_source: str = 'dset'  # "random_state", "dset", "fix_goal"
+    goal_source: str = 'dset'  # "random_state", "dset", "fix_goal" # TODO: change here
     n_evals: int = 50
 
 #---------------------------------- setup ----------------------------------#
@@ -205,11 +206,17 @@ for i in range(n_evals):
 
 exec_actions = np.stack(exec_actions, axis=0)
 e_obses, e_states = env.rollout(eval_seed, state_0, exec_actions)
-
-
+# e_obses['rgb_array'] has shape (n_evals, T, H, W, C)
+# obs_g['rgb_array'] has shape (n_evals, 1, H, W, C)
 for i in range(n_evals):
     rollout = e_obses['visual'][i:i+1]
     renderer.composite(join(args.savepath, f'{i}_rollout.png'), rollout, ncol=1)
+    # write rollout video: put rollout and goal side-by-side (resulting frames have shape H x 2*W x C)
+    roll = e_obses['rgb_array'][i]            # (T, H, W, C)
+    goal = obs_g['rgb_array'][i]              # (1, H, W, C)
+    goal_rep = np.repeat(goal, roll.shape[0], axis=0)  # (T, H, W, C)
+    frames = np.concatenate([roll, goal_rep], axis=2).astype(np.uint8)  # concat width -> (T, H, 2*W, C)
+    imageio.mimwrite(join(args.savepath, f'{i}_rollout.mp4'), frames, fps=30)
 
 e_final_state = e_states[:, -1, :]
 eval_results = env.eval_state(state_g, e_final_state)

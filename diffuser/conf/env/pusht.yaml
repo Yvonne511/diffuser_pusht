@@ -14,6 +14,7 @@ dataset:
   use_sin_cos: true
   state_based: true
   data_path: ${oc.env:DATASET_DIR}/pusht_noise
+  # data_path: ${oc.env:DATASET_DIR}/pusht
   split_ratio: 0.9
   transform:
     _target_: "diffuser.datasets_ours.img_transforms.default_transform"

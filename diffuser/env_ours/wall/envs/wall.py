@@ -91,6 +91,9 @@ class DotWall(gym.Env):
             visual = self.channels_to_img(self.wall_img, self.dot_img)
             visual = self.transform(visual.float()).permute(1, 2, 0)
         observation = {'visual': visual, 'proprio': state.float()}
+        visual = self.channels_to_img(self.wall_img, self.dot_img)
+        visual = self.transform(visual.float()).permute(1, 2, 0)
+        observation['rgb_array'] = visual
         return observation, state
 
     def step(self, action: torch.Tensor):
@@ -107,6 +110,9 @@ class DotWall(gym.Env):
         info = {}
         info['state'] = self.dot_position
         info['pos_agent'] = self.dot_position
+        visual = self.channels_to_img(self.wall_img, self.dot_img)
+        visual = self.transform(visual.float()).permute(1, 2, 0)
+        info['rgb_array'] = visual
         return observation, 0, False, info # observation, reward, done, info
 
     def _calculate_next_position(self, action):

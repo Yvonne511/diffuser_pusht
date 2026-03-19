@@ -12,6 +12,7 @@ class Parser(utils.Parser):
 
 args = Parser().parse_args('diffusion')
 
+# args.exp_name = args.exp_name + "_expert"  # TODO: change here for expert pusht data
 
 #-----------------------------------------------------------------------------#
 #---------------------------------- dataset ----------------------------------#
@@ -39,7 +40,6 @@ renderer = render_config()
 
 observation_dim = dataset.observation_dim
 action_dim = dataset.action_dim
-
 
 #-----------------------------------------------------------------------------#
 #------------------------------ model & trainer ------------------------------#

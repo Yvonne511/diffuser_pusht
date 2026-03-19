@@ -491,6 +491,8 @@ class PushTEnv(gym.Env):
             "visual": visual,
             "proprio": proprio
         }
+        visual = self._render_frame("rgb_array")
+        observation['rgb_array'] = visual
         return observation, state
     
     def step_zero_actions(self):
@@ -544,6 +546,8 @@ class PushTEnv(gym.Env):
         info["state"] = state
         info["max_coverage"] = max(self.coverage_arr)
         info["final_coverage"] = self.coverage_arr[-1]
+        visual = self._render_frame("rgb_array")
+        info["rgb_array"] = visual
 
         return observation, reward, done, info
 
@@ -654,6 +658,9 @@ class PushTEnv(gym.Env):
         info["state"] = state
         info["max_coverage"] = max(self.coverage_arr)
         info["final_coverage"] = self.coverage_arr[-1]
+
+        visual = self._render_frame("rgb_array")
+        info["rgb_array"] = visual
 
         return observation, reward, done, info
 

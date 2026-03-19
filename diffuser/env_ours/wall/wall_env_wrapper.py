@@ -113,6 +113,7 @@ class WallEnvWrapper(DotWall):
         obses, rewards, dones, infos = self.step_multiple(actions)
         for k in obses.keys():
             obses[k] = np.vstack([np.expand_dims(obs[k], 0), obses[k]])
+        obses['rgb_array'] = infos['rgb_array']
         states = np.vstack([np.expand_dims(state, 0), infos["state"]])
         states = np.stack(states)
         return obses, states

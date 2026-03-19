@@ -271,6 +271,8 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         info['target'] = self._target
         info['obs'] = ob if self.return_value == 'obs' else None
         info['pos_agent'] = state[:2]
+        visual = self._render_frame()
+        info['rgb_array'] = visual
         return ob, reward, done, info
 
     def _get_obs(self):
@@ -353,6 +355,8 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
             visual = self._render_frame()
             obs["visual"] = visual
         state = state[:4] if self.with_target else state
+        visual = self._render_frame()
+        obs['rgb_array'] = visual
         return obs, state
 
     def step_zero_actions(self):
@@ -389,6 +393,8 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         info['target'] = self._target
         info['obs'] = ob if self.return_value == 'obs' else None
         info['pos_agent'] = state[:2]
+        visual = self._render_frame()
+        info['rgb_array'] = visual
         return ob, reward, done, info
         
     

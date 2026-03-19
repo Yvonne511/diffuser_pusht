@@ -74,6 +74,7 @@ base = {
         'bucket': None,
         'device': 'cuda',
         'data_aug': True,
+        # 'data_aug': False,
     },
 
     'plan': {
@@ -96,7 +97,7 @@ base = {
         'data_aug': True,
 
         ## loading
-        'diffusion_loadpath': 'f:diffusion/H{horizon}_T{n_diffusion_steps}_aug{data_aug}',
+        'diffusion_loadpath': 'f:diffusion/H{horizon}_T{n_diffusion_steps}_aug{data_aug}_expert', # TODO: change here
         'diffusion_epoch': 'latest',
     },
 
@@ -117,12 +118,14 @@ pusht = {
     'diffusion': {
         'horizon': 128,
         'n_diffusion_steps': 256,
-        'data_aug': True,
+        # 'data_aug': True,
+        'data_aug': True, # TODO: change here
     },
     'plan': {
         'horizon': 128,
         'n_diffusion_steps': 256,
-        'data_aug': True,
+        # 'data_aug': True,
+        'data_aug': True, # TODO: change here
     },
 }
 
