@@ -82,6 +82,14 @@ class PushTWrapper(PushTEnv):
             'state_dist': state_dist,
         }
 
+    def set_task_goal(self, goal_state):
+        if self.use_sin_cos:
+            goal_angle = np.arctan2(goal_state[4], goal_state[5])
+        else:
+            goal_angle = goal_state[4]
+        goal = np.array([goal_state[2], goal_state[3], goal_angle])
+        super().set_task_goal(goal)
+
     def prepare(self, seed, init_state, stabilize=False):
         """
         Reset with controlled init_state
@@ -129,4 +137,4 @@ class PushTWrapper(PushTEnv):
         obses['rgb_array'] = infos['rgb_array']
         states = np.vstack([np.expand_dims(state, 0), infos["state"]])
         states = np.stack(states)
-        return obses, states
+        return obses, states, infos

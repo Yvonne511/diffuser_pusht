@@ -49,6 +49,12 @@ class SerialVectorEnv:
         state = np.stack(state)
         return obs, state
 
+    def set_task_goal(self, goal_state):
+        for i in range(self.num_envs):
+            env = self.envs[i]
+            cur_goal_state = goal_state[i]
+            env.set_task_goal(cur_goal_state)
+
     def step_multiple(self, actions):
         """
         actions: (num_envs, T, action_dim)
@@ -82,14 +88,17 @@ class SerialVectorEnv:
         """
         obses = []
         states = []
+        infos = []
         for i in range(self.num_envs):
             env = self.envs[i]
             cur_seed = seed[i]
             cur_init_state = init_state[i]
             cur_actions = actions[i]
-            obs, state = env.rollout(cur_seed, cur_init_state, cur_actions)
+            obs, state, info = env.rollout(cur_seed, cur_init_state, cur_actions)
             obses.append(obs)
             states.append(state)
+            infos.append(info)
         obses = aggregate_dct(obses)
         states = np.stack(states)
-        return obses, states
+        infos = aggregate_dct(infos)
+        return obses, states, infos

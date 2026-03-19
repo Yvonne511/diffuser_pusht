@@ -80,6 +80,10 @@ class PointMazeWrapper(MazeEnv):
         obs, state = self.reset(stabilize=stabilize)
         return obs, state
 
+    def set_task_goal(self, goal_state):
+        goal_state = np.array([goal_state[0], goal_state[1]])
+        self.set_target(goal_state)
+
     def step_multiple(self, actions):
         """
         infos: dict, each key has shape (T, ...)
@@ -116,4 +120,4 @@ class PointMazeWrapper(MazeEnv):
         obses['rgb_array'] = infos['rgb_array']
         states = np.vstack([np.expand_dims(state, 0), infos["state"]])
         states = np.stack(states)
-        return obses, states
+        return obses, states, infos

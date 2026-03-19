@@ -83,6 +83,10 @@ class WallEnvWrapper(DotWall):
         obs, state = self.reset()
         return obs, state
 
+    def set_task_goal(self, goal_state):
+        goal_state = torch.as_tensor(goal_state, dtype=torch.float32)
+        self.target_position = torch.stack([goal_state[0], goal_state[1]])
+
     def step_multiple(self, actions):
         obses = []
         rewards = []
@@ -116,6 +120,6 @@ class WallEnvWrapper(DotWall):
         obses['rgb_array'] = infos['rgb_array']
         states = np.vstack([np.expand_dims(state, 0), infos["state"]])
         states = np.stack(states)
-        return obses, states
+        return obses, states, infos
 
     
