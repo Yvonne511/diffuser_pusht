@@ -365,7 +365,7 @@ class PushTRenderer:
         # get image given first and last observation
         self.env.reset()
         self.env.prepare(0, observations[0])
-        self.env.set_task_goal(observations[-1][2:])
+        self.env.set_task_goal(observations[-1])
         frame = self.env.render()
 
         H, W = frame.shape[:2]
