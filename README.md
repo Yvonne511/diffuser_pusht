@@ -15,6 +15,7 @@ PushT Command
 ```
 python scripts/train.py --config config.pusht --dataset pusht
 python scripts/plan_ours.py --dataset pusht --goal_source fixed_goal --n_evals 50
+python scripts/plan_ours_v2.py --dataset pusht --goal_source fixed_goal --n_evals 50 --replan
 ```
 Wall Command
 ```
