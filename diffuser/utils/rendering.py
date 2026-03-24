@@ -370,7 +370,7 @@ class PushTRenderer:
         # frame = self.env.env.env._render_frame("rgb_array")
         ######### v2
         self.env.prepare(0, observations[0])
-        self.env.set_task_goal(observations[-1][2:])
+        self.env.set_task_goal(observations[-1])
         frame = self.env.render()
 
 

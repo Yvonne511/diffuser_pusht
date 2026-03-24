@@ -875,7 +875,8 @@ class PushTEnv(gym.Env):
             self.goal_color = pygame.Color("LightGreen")
         else:
             self.goal_color = pygame.Color("White")
-        self.goal_pose = np.array([256, 256, np.pi / 4])  # x, y, theta (in radians)
+        if not hasattr(self, "goal_pose") or self.goal_pose is None:
+            self.goal_pose = np.array([256, 256, np.pi / 4]) # x, y, theta (in radians)
 
         # Add collision handling
         self.collision_handeler = self.space.add_collision_handler(0, 0)
