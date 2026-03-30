@@ -113,6 +113,7 @@ class DotWall(gym.Env):
         visual = self.channels_to_img(self.wall_img, self.dot_img)
         visual = self.transform(visual.float()).permute(1, 2, 0)
         info['rgb_array'] = visual
+        observation['rgb_array'] = visual
         return observation, 0, False, info # observation, reward, done, info
 
     def _calculate_next_position(self, action):

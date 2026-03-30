@@ -12,7 +12,10 @@ import gym
 import random
 from einops import rearrange
 import torch
+import os
+from tqdm import tqdm
 
+import imageio
 
 class Parser(utils.Parser):
     dataset: str = 'pusht'
@@ -34,6 +37,11 @@ s = 99
 frameskip= 1
 goal_H = args.horizon
 seed(s)
+
+# args.savepath = args.savepath + "_replan_NO_aug"
+args.savepath = args.savepath + "_replan"
+if not os.path.exists(args.savepath):
+    os.makedirs(args.savepath)
 
 def make_env_and_datasets_ours(dataset_name):
     # load yaml config from conf/env/dataset_name.py
@@ -76,7 +84,9 @@ def make_env_and_datasets_ours(dataset_name):
 env, envs, dsets, orig_dset = make_env_and_datasets_ours(args.dataset)
 dset = orig_dset['valid']
 eval_seed = [s * n + 1 for n in range(n_evals)]
-max_steps = min(args.max_steps, getattr(env, "max_episode_steps", args.max_steps))
+# max_steps = min(args.max_steps, getattr(env, "max_episode_steps", args.max_steps))
+max_steps = 1000
+# max_steps = 5
 
 def prepare_targets():
     states = []
@@ -231,8 +241,10 @@ if args.replan:
         successes = []
         state_dists = []
         coverages = []
+        visuals = []
+        cur_goal = obs_g['rgb_array'][i, 0]
 
-        for t in range(max_steps):
+        for t in tqdm(range(max_steps), desc="Env Steps"):
             if t > 0:
                 planned_actions, _ = plan_from_observation(observation, goal_observation)
 
@@ -240,6 +252,8 @@ if args.replan:
             next_obs, _, done, info = env.step(action)
 
             observation = next_obs['visual']
+            visual = np.concatenate([next_obs['rgb_array'], cur_goal], axis=1)
+            visuals.append(visual)
             rollout_visuals.append(to_numpy(observation))
 
             cur_state = info['state'] if 'state' in info else observation
@@ -253,6 +267,10 @@ if args.replan:
 
             if done:
                 break
+        
+        frames = np.stack(visuals)
+        print("### num frames", frames.shape)
+        imageio.mimwrite(join(args.savepath, f'{i}_rollout_success_{np.any(successes)}.mp4'), frames, fps=30)
 
         rollout = np.stack(rollout_visuals, axis=0)[None]
         renderer.composite(join(args.savepath, f'{i}_rollout.png'), rollout, ncol=1)

@@ -273,6 +273,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         info['pos_agent'] = state[:2]
         visual = self._render_frame()
         info['rgb_array'] = visual
+        ob['rgb_array'] = visual
         return ob, reward, done, info
 
     def _get_obs(self):
@@ -395,6 +396,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         info['pos_agent'] = state[:2]
         visual = self._render_frame()
         info['rgb_array'] = visual
+        ob['rgb_array'] = visual
         return ob, reward, done, info
         
     
@@ -419,5 +421,3 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.sim.render_contexts[0].cam.elevation = -90
         img1 = self.sim.render(224, 224)
         return img, img1
-
-
