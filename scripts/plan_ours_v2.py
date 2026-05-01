@@ -219,6 +219,21 @@ def plan_from_observation(observation, goal_observation):
     _, samples = policy(cond, batch_size=1)
     return samples.actions[0], samples
 
+def combine_and_replace(plan_path, rollout_path, out_path):
+    plan_img = imageio.imread(plan_path)
+    rollout_img = imageio.imread(rollout_path)
+    if plan_img.shape[0] != rollout_img.shape[0]:
+        h = max(plan_img.shape[0], rollout_img.shape[0])
+        def pad_h(img, h):
+            pad = np.zeros((h - img.shape[0], img.shape[1], img.shape[2]), dtype=img.dtype)
+            return np.concatenate([img, pad], axis=0)
+        plan_img = pad_h(plan_img, h)
+        rollout_img = pad_h(rollout_img, h)
+    combined = np.concatenate([plan_img, rollout_img], axis=1)
+    imageio.imsave(out_path, combined)
+    os.remove(plan_path)
+    os.remove(rollout_path)
+
 if args.replan:
     final_successes = []
     optimal_successes = []
@@ -268,12 +283,18 @@ if args.replan:
             if done:
                 break
         
-        frames = np.stack(visuals)
+        frames = np.stack(visuals).astype(np.uint8)
         print("### num frames", frames.shape)
         imageio.mimwrite(join(args.savepath, f'{i}_rollout_success_{np.any(successes)}.mp4'), frames, fps=30)
 
         rollout = np.stack(rollout_visuals, axis=0)[None]
-        renderer.composite(join(args.savepath, f'{i}_rollout.png'), rollout, ncol=1)
+        rollout_path = join(args.savepath, f'{i}_rollout.png')
+        renderer.composite(rollout_path, rollout, ncol=1)
+        combine_and_replace(
+            join(args.savepath, f'{i}.png'),
+            rollout_path,
+            join(args.savepath, f'{i}_combined.png'),
+        )
 
         final_successes.append(successes[-1])
         optimal_successes.append(np.any(successes))
@@ -311,8 +332,11 @@ else:
     e_obses, e_states, infos = envs.rollout(eval_seed, state_0, exec_actions)
 
     for i in range(n_evals):
+        plan_path = join(args.savepath, f'{i}.png')
+        rollout_path = join(args.savepath, f'{i}_rollout.png')
         rollout = e_obses['visual'][i:i+1]
-        renderer.composite(join(args.savepath, f'{i}_rollout.png'), rollout, ncol=1)
+        renderer.composite(rollout_path, rollout, ncol=1)
+        combine_and_replace(plan_path, rollout_path, join(args.savepath, f'{i}_combined.png'))
 
     e_final_state = e_states[:, -1, :]
     eval_results = envs.eval_state(state_g, e_final_state)

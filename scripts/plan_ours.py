@@ -3,6 +3,7 @@ import numpy as np
 from os.path import join
 import pdb
 import imageio
+import os
 
 from diffuser.guides.policies import Policy
 import diffuser.datasets as datasets
@@ -211,8 +212,27 @@ e_obses, e_states, infos = env.rollout(eval_seed, state_0, exec_actions)
 
 
 for i in range(n_evals):
+    plan_path = join(args.savepath, f'{i}.png')
+    rollout_path = join(args.savepath, f'{i}_rollout.png')
+
     rollout = e_obses['visual'][i:i+1]
-    renderer.composite(join(args.savepath, f'{i}_rollout.png'), rollout, ncol=1)
+    renderer.composite(rollout_path, rollout, ncol=1)
+
+    plan_img = imageio.imread(plan_path)
+    rollout_img = imageio.imread(rollout_path)
+    if plan_img.shape[0] != rollout_img.shape[0]:
+        # pad shorter image to match height
+        h = max(plan_img.shape[0], rollout_img.shape[0])
+        def pad_h(img, h):
+            pad = np.zeros((h - img.shape[0], img.shape[1], img.shape[2]), dtype=img.dtype)
+            return np.concatenate([img, pad], axis=0)
+        plan_img = pad_h(plan_img, h)
+        rollout_img = pad_h(rollout_img, h)
+    combined = np.concatenate([plan_img, rollout_img], axis=1)
+    imageio.imsave(join(args.savepath, f'{i}_combined.png'), combined)
+    os.remove(plan_path)
+    os.remove(rollout_path)
+
     # write rollout video: put rollout and goal side-by-side (resulting frames have shape H x 2*W x C)
     roll = e_obses['rgb_array'][i]            # (T, H, W, C)
     goal = obs_g['rgb_array'][i]              # (1, H, W, C)

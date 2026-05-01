@@ -37,6 +37,12 @@ Point_maze_large Command
 python scripts/train.py --config config.point_maze_large --dataset point_maze_large
 python scripts/plan_ours.py --config config.point_maze_large --dataset point_maze_large --goal_source random_state --n_evals 10
 ```
+Point_maze_giant Command
+```
+python scripts/train.py --config config.point_maze_giant --dataset point_maze_giant
+python scripts/plan_ours.py --config config.point_maze_giant --dataset point_maze_giant --goal_source random_state --n_evals 10
+python scripts/plan_ours_v2.py --config config.point_maze_giant --dataset point_maze_giant --goal_source random_state --n_evals 2 --replan
+```
 
 # Planning with Diffusion &nbsp;&nbsp; [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1YajKhu-CUIGBJeQPehjVPJcK_b38a8Nc?usp=sharing)
 

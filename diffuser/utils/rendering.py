@@ -514,6 +514,7 @@ point_maze_scale = {
     'point_maze': (7.5, 56.5, 68),
     'point_maze_medium': (10, 48, 48),
     'point_maze_large': (13.4, 48, 30),
+    'point_maze_giant': (16.5, 18, 18),
 }
 
 class PointMazeRenderer:

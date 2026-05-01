@@ -1,5 +1,5 @@
 from gym.envs.registration import register
-from .pointmaze import U_MAZE, MEDIUM_MAZE, LARGE_MAZE
+from .pointmaze import U_MAZE, MEDIUM_MAZE, LARGE_MAZE, GIANT_MAZE
 register(
     id="pusht-v0",
     entry_point="diffuser.env_ours.pusht.pusht_wrapper:PushTWrapper",
@@ -38,6 +38,19 @@ register(
     max_episode_steps=300,
     kwargs={
         'maze_spec':LARGE_MAZE,
+        'reward_type':'sparse',
+        'reset_target': False,
+        'ref_min_score': 23.85,
+        'ref_max_score': 161.86,
+        'dataset_url':'http://rail.eecs.berkeley.edu/datasets/offline_rl/maze2d/maze2d-umaze-sparse-v1.hdf5'
+    }
+)
+register(
+    id='point_maze_giant-v0',
+    entry_point='diffuser.env_ours.pointmaze:PointMazeWrapper',
+    max_episode_steps=300,
+    kwargs={
+        'maze_spec':GIANT_MAZE,
         'reward_type':'sparse',
         'reset_target': False,
         'ref_min_score': 23.85,

@@ -153,6 +153,24 @@ OPEN = \
         "#######"
 
 
+GIANT_MAZE = \
+    "###############\\"+\
+    "#OOOO#OOOO#OOO#\\"+\
+    "#O##O#O##O#O#O#\\"+\
+    "#OOOOOO#OOOOOO#\\"+\
+    "##O###O#O####O#\\"+\
+    "#OO#O#OOOOO#OO#\\"+\
+    "#O##O#O##O#O###\\"+\
+    "#OOOGOO#OOOOOO#\\"+\
+    "#O####O#O###O##\\"+\
+    "#OO#OOOOO#OOOO#\\"+\
+    "##O#O###O#O##O#\\"+\
+    "#OOOO#OOO#OO#O#\\"+\
+    "#O##O#O###O#OO#\\"+\
+    "#OOOO#OOOOO#OO#\\"+\
+    "###############"
+
+
 STATE_RANGES = np.array([
     [0.39318362, 3.2198412],  # Range for first dimension
     [0.62660956, 3.2187355],  # Range for second dimension

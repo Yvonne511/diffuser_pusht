@@ -30,7 +30,7 @@ class PointMazeWrapper(MazeEnv):
         rs = np.random.RandomState(seed)
 
         def generate_state():
-            if self.spec.id in ('point_maze_medium-v0', 'point_maze_large-v0'):
+            if self.spec.id in ('point_maze_medium-v0', 'point_maze_large-v0', 'point_maze_giant-v0'):
                 x, y = self.sample_random_xy()
                 state = np.array([
                     x, 
@@ -59,6 +59,10 @@ class PointMazeWrapper(MazeEnv):
     
     def update_env(self, env_info):
         pass 
+
+    def set_task_goal(self, goal_state):
+        goal_state = np.array([goal_state[0], goal_state[1]])
+        self.set_target(goal_state)
     
     def eval_state(self, goal_state, cur_state):
         success = np.linalg.norm(goal_state[:2] - cur_state[:2]) < 0.5
@@ -79,10 +83,6 @@ class PointMazeWrapper(MazeEnv):
         self.set_init_state(init_state)
         obs, state = self.reset(stabilize=stabilize)
         return obs, state
-
-    def set_task_goal(self, goal_state):
-        goal_state = np.array([goal_state[0], goal_state[1]])
-        self.set_target(goal_state)
 
     def step_multiple(self, actions):
         """
