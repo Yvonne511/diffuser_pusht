@@ -16,6 +16,7 @@ PushT Command
 python scripts/train.py --config config.pusht --dataset pusht
 python scripts/plan_ours.py --dataset pusht --goal_source fixed_goal --n_evals 50
 python scripts/plan_ours_v2.py --dataset pusht --goal_source fixed_goal --n_evals 50 --replan
+python scripts/plan_ours_v3.py --dataset pusht --goal_source fixed_goal --n_evals 50 --replan
 ```
 Wall Command
 ```
@@ -42,6 +43,13 @@ Point_maze_giant Command
 python scripts/train.py --config config.point_maze_giant --dataset point_maze_giant
 python scripts/plan_ours.py --config config.point_maze_giant --dataset point_maze_giant --goal_source random_state --n_evals 10
 python scripts/plan_ours_v2.py --config config.point_maze_giant --dataset point_maze_giant --goal_source random_state --n_evals 2 --replan
+```
+dmcontrol_reacher3 Command
+```
+export DATASET_DIR=/nas/yvonne/datasets
+python scripts/train.py --config config.dmcontrol_reacher3 --dataset dmcontrol_reacher3
+python scripts/plan_ours.py --config config.dmcontrol_reacher3 --dataset dmcontrol_reacher3 --goal_source random_state --n_evals 10
+python scripts/plan_ours_v2.py --config config.dmcontrol_reacher3 --dataset dmcontrol_reacher3 --goal_source random_state --n_evals 2 --replan
 ```
 
 # Planning with Diffusion &nbsp;&nbsp; [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1YajKhu-CUIGBJeQPehjVPJcK_b38a8Nc?usp=sharing)
