@@ -2,10 +2,10 @@ import os
 import numpy as np
 import gym
 from dm_control import suite
-from env_ours.utils import aggregate_dct
+from diffuser.env_ours.utils import aggregate_dct
 
 # Register custom dm_control tasks (e.g. four-link reacher)
-import env.dmcontrol_tasks  # noqa: F401
+import diffuser.env_ours.dmcontrol_tasks  # noqa: F401
 suite.ALL_TASKS = suite.ALL_TASKS + suite._get_tasks('custom')
 suite.TASKS_BY_DOMAIN = suite._get_tasks_by_domain(suite.ALL_TASKS)
 

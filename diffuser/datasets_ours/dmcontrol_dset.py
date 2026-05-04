@@ -4,8 +4,15 @@ import pickle
 from pathlib import Path
 from typing import Callable, Optional
 from einops import rearrange
-from datasets.normalizer import LinearNormalizer, DummyNormalizer, MeanStdNormalizer
-from .traj_dset import TrajDataset, TrajSlicerDataset, TrajRandomPairDataset, get_train_val_sliced
+from .traj_dset import TrajDataset, TrajSlicerDataset, get_train_val_sliced
+
+class DummyNormalizer:
+    def fit(self, data):
+        pass
+    def normalize(self, data):
+        return data
+    def unnormalize(self, data):
+        return data
 
 
 class DMControlDataset(TrajDataset):
@@ -23,6 +30,7 @@ class DMControlDataset(TrajDataset):
         linear_state_normalizer=None,
         linear_proprio_normalizer=None,
     ):
+        assert normalizer_type == "dummy", "Only dummy normalizer is currently supported for DMControlDataset for diffuser"
         self.data_path = Path(data_path)
         self.transform = transform
         self.normalizer_type = normalizer_type
@@ -62,65 +70,10 @@ class DMControlDataset(TrajDataset):
         self.normalized_states = self.state_normalizer.normalize(self.states.clone())
 
     def initialize_normalizers(self):
-        # initialize linear normalizers
-        self.linear_action_normalizer = LinearNormalizer()
-        self.linear_state_normalizer = LinearNormalizer()
-        self.linear_proprio_normalizer = LinearNormalizer()
 
-        valid_actions = []
-        valid_proprios = []
-        valid_states = []
-
-        for i in range(len(self.seq_lengths)):
-            T = self.seq_lengths[i]
-            valid_actions.append(self.actions[i, :T, :])
-            valid_proprios.append(self.proprios[i, :T, :])
-            valid_states.append(self.states[i, :T, :])
-
-        all_valid_actions = torch.cat(valid_actions, dim=0)
-        all_valid_proprios = torch.cat(valid_proprios, dim=0)
-        all_valid_states = torch.cat(valid_states, dim=0)
-
-        self.linear_action_normalizer.fit(all_valid_actions)
-        self.linear_proprio_normalizer.fit(all_valid_proprios)
-        self.linear_state_normalizer.fit(all_valid_states)
-
-        # initialize mean_std normalizers
-        action_mean = all_valid_actions.mean(dim=0)
-        action_std = all_valid_actions.std(dim=0)
-        state_mean = all_valid_states.mean(dim=0)
-        state_std = all_valid_states.std(dim=0)
-        proprio_mean = all_valid_proprios.mean(dim=0)
-        proprio_std = all_valid_proprios.std(dim=0)
-
-        self.mean_std_action_normalizer = MeanStdNormalizer(
-            mean=action_mean, std=action_std
-        )
-        self.mean_std_state_normalizer = MeanStdNormalizer(
-            mean=state_mean, std=state_std
-        )
-        self.mean_std_proprio_normalizer = MeanStdNormalizer(
-            mean=proprio_mean, std=proprio_std
-        )
-
-        if self.normalizer_type == "dummy":
-            self.action_normalizer = DummyNormalizer()
-            self.state_normalizer = DummyNormalizer()
-            self.proprio_normalizer = DummyNormalizer()
-        elif self.normalizer_type == "mean_std":
-            self.action_normalizer = self.mean_std_action_normalizer
-            self.state_normalizer = self.mean_std_state_normalizer
-            self.proprio_normalizer = self.mean_std_proprio_normalizer
-        elif self.normalizer_type == "linear":
-            self.action_normalizer = self.linear_action_normalizer
-            self.state_normalizer = self.linear_state_normalizer
-            self.proprio_normalizer = self.linear_proprio_normalizer
-        elif self.normalizer_type == "combined":
-            self.action_normalizer = self.mean_std_action_normalizer
-            self.state_normalizer = self.linear_state_normalizer
-            self.proprio_normalizer = self.linear_proprio_normalizer
-        else:
-            raise ValueError(f"Unknown normalizer type: {self.normalizer_type}")
+        self.action_normalizer = DummyNormalizer()
+        self.state_normalizer = DummyNormalizer()
+        self.proprio_normalizer = DummyNormalizer()
 
     def get_seq_length(self, idx):
         return self.seq_lengths[idx]

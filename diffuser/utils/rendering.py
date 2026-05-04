@@ -590,11 +590,7 @@ class PointMazeRenderer:
         print(f'Saved {len(paths)} samples to: {savepath}')
 
 class dmcontrolReacherRenderer:
-    # Three-link reacher XML: arm0=0.08m, arm1=0.08m, finger body offset=0.10m
-    LINK_LENGTHS = [0.08, 0.08, 0.10]
-    # Camera at z=0.75, fovy=45deg -> half-height = 0.75*tan(22.5deg) ~= 0.311m
-    # scale = img_size / (2 * 0.311) ~= 360 px/m; adjust after seeing visualization
-    SCALE = 360
+    SCALE = 50
     IMG_CENTER = 112  # for 224x224 image
 
     def __init__(self, env):
@@ -602,52 +598,51 @@ class dmcontrolReacherRenderer:
         self.env = gym.make(f"{env}-v0", domain='reacher', task='three_hard', state_based=True)
         self._remove_margins = False
 
-    def _fk(self, qpos):
-        """Joint angles -> end-effector (x, y) in world frame via planar FK."""
-        cum = 0.0
-        x = y = 0.0
-        for l, q in zip(self.LINK_LENGTHS, qpos):
-            cum += q
-            x += l * np.cos(cum)
-            y += l * np.sin(cum)
-        return x, y
-
-    def _world_to_pixel(self, x, y):
-        px = self.IMG_CENTER + x * self.SCALE
-        py = self.IMG_CENTER - y * self.SCALE  # image y is flipped
-        return px, py
+    def _state_to_ee(self, state):
+        physics = self.env.unwrapped.dm_env.physics
+        n_qpos = len(physics.data.qpos)
+        physics.data.qpos[:] = state[:n_qpos]
+        physics.forward()
+        return physics.named.data.geom_xpos['finger', :2].copy()  # (x, y) world meters
 
     def renders(self, observations, title=None):
-        obs = np.asarray(observations)  # (T, state_dim)
-        n_joints = len(self.LINK_LENGTHS)
 
-        # render background at the initial state
-        self.env.prepare(0, obs[0])
-        frame = self.env.render()  # (H, W, C)
+        # get image given first and last observation
+        self.env.prepare(0, observations[0])
+        frame = self.env.render().astype(np.uint8)
+
         H, W = frame.shape[:2]
 
-        # forward kinematics for every timestep -> end-effector pixel coords
-        ee = np.array([
-            self._world_to_pixel(*self._fk(obs[t, :n_joints]))
-            for t in range(len(obs))
-        ])
+        scale, x_offset, y_offset = 0.62, self.IMG_CENTER, self.IMG_CENTER
+        obs = np.asarray(observations)
+        ee = np.array([self._state_to_ee(obs[t]) for t in range(len(obs))])  # (T, 2) world meters
+        ee_px = np.stack([
+             ee[:, 0] * 224 / scale + x_offset,
+            -ee[:, 1] * 224 / scale + y_offset,
+        ], axis=-1)
 
         plt.clf()
         fig = plt.gcf()
         fig.set_size_inches(5, 5)
+
         ax = plt.gca()
         ax.imshow(frame, extent=(0, W, H, 0))
 
-        T = len(obs)
-        colors = plt.cm.Blues(np.linspace(0.3, 0.9, T))
+        path_length = len(ee_px)
 
-        ax.plot(ee[:, 0], ee[:, 1], color="blue", alpha=0.5, linewidth=2, zorder=10)
-        ax.scatter(ee[:, 0], ee[:, 1], c=colors, s=18, zorder=20)
-        ax.scatter([ee[0, 0]],  [ee[0, 1]],  marker="o", s=80, color="lightblue", zorder=30)
-        ax.scatter([ee[-1, 0]], [ee[-1, 1]], marker="X", s=100, color="blue",      zorder=30)
+        # ----- plot tracks on top -----
+        colors_T = plt.cm.Blues(np.linspace(0.3, 0.9, path_length))
 
+        ax.plot(ee_px[:, 0], ee_px[:, 1], color="blue", alpha=0.5, linewidth=2, zorder=10)
+        ax.scatter(ee_px[:, 0], ee_px[:, 1], c=colors_T, s=18, zorder=20, label="T")
+
+        ax.scatter([ee_px[0, 0]],  [ee_px[0, 1]],  marker="o", s=80, color="lightblue", zorder=30)
+        ax.scatter([ee_px[-1, 0]], [ee_px[-1, 1]], marker="X", s=100, color="blue", zorder=30)
+
+        # lock to image coords so overlay doesn't autoscale weirdly
         ax.set_xlim(0, W)
         ax.set_ylim(H, 0)
+
         ax.set_aspect("equal", adjustable="box")
         ax.axis("off")
         if title is not None:
@@ -656,7 +651,7 @@ class dmcontrolReacherRenderer:
         img = plot2img(fig, remove_margins=self._remove_margins)
         return img
 
-    def composite(self, savepath, paths, ncol=1, **kwargs):
+    def composite(self, savepath, paths, ncol=5, **kwargs):
         '''
             savepath : str
             paths : [ n_paths x horizon x state_dim ]
