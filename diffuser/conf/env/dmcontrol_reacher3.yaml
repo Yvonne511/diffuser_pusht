@@ -1,0 +1,21 @@
+name: dmcontrol_reacher3
+args: []
+kwargs:
+  domain: reacher
+  task: three_hard
+  state_based: true
+
+dataset:
+  _target_: "diffuser.datasets_ours.dmcontrol_dset.load_dmcontrol_slice_train_val"
+  # dset_type: 'slice'
+  state_based: true
+  n_rollout: null
+  normalizer_type: "dummy" # "combined", "linear", "mean_std", "dummy"
+  data_path: ${oc.env:DATASET_DIR}/dmcontrol_reacher3
+  split_ratio: 0.9
+  transform:
+    _target_: "diffuser.datasets_ours.img_transforms.default_transform"
+    img_size: 224
+
+decoder_path: null
+num_workers: 0

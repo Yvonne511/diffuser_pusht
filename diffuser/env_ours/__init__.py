@@ -64,3 +64,9 @@ register(
     max_episode_steps=300,
     reward_threshold=1.0,
 )
+register(
+    id="dmcontrol_reacher3-v0",
+    entry_point="diffuser.env_ours.dmcontrol_wrapper:DMControlWrapper",
+    max_episode_steps=300,
+    reward_threshold=1.0,
+)
