@@ -85,7 +85,7 @@ env, envs, dsets, orig_dset = make_env_and_datasets_ours(args.dataset)
 dset = orig_dset['valid']
 eval_seed = [s * n + 1 for n in range(n_evals)]
 # max_steps = min(args.max_steps, getattr(env, "max_episode_steps", args.max_steps))
-max_steps = 1000
+max_steps = 2000
 # max_steps = 5
 
 def prepare_targets():
@@ -341,10 +341,18 @@ else:
     e_final_state = e_states[:, -1, :]
     eval_results = envs.eval_state(state_g, e_final_state)
 
+    n_steps = e_states.shape[1]
+    intermediate_successes = np.zeros((n_evals, n_steps), dtype=bool)
+    for t in range(n_steps):
+        step_results = envs.eval_state(state_g, e_states[:, t, :])
+        intermediate_successes[:, t] = step_results['success'].astype(bool)
+    optimal_successes = np.any(intermediate_successes, axis=1)
+
     logs = {
         f"success_rate" if key == "success" else f"mean_{key}": np.mean(value) if key != "success" else np.mean(value.astype(float))
         for key, value in eval_results.items()
     }
+    logs["optimal_success_rate"] = float(np.mean(optimal_successes))
 
     if args.dataset == 'pusht':
         logs["avg_max_coverage"] = np.mean(infos['max_coverage'][:, -1])
