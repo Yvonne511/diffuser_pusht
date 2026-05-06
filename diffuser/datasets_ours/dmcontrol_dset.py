@@ -22,6 +22,7 @@ class DMControlDataset(TrajDataset):
         n_rollout: Optional[int] = None,
         transform: Optional[Callable] = None,
         normalizer_type: str = "linear",
+        use_sin_cos: bool = False,
         state_based: bool = False,
         action_normalizer=None,
         state_normalizer=None,
@@ -31,13 +32,24 @@ class DMControlDataset(TrajDataset):
         linear_proprio_normalizer=None,
     ):
         assert normalizer_type == "dummy", "Only dummy normalizer is currently supported for DMControlDataset for diffuser"
+        assert use_sin_cos == True, "Only use_sin_cos=True is currently supported for DMControlDataset for diffuser"
         self.data_path = Path(data_path)
         self.transform = transform
         self.normalizer_type = normalizer_type
         self.state_based = state_based
+        self.use_sin_cos = use_sin_cos
         self.states = torch.load(self.data_path / "states.pth").float()
         self.actions = torch.load(self.data_path / "actions.pth").float()
         self.seq_lengths = [self.states.shape[1]] * self.states.shape[0]
+
+        if self.use_sin_cos:
+            # states stored as [q1,...,qn, qd1,...,qdn]; replace qpos angles with (sin, cos) pairs
+            n_joints = self.states.shape[-1] // 2
+            qpos = self.states[..., :n_joints]
+            qvel = self.states[..., n_joints:]
+            # interleave: [sin(q1), cos(q1), sin(q2), cos(q2), ...]
+            sin_cos = torch.stack([torch.sin(qpos), torch.cos(qpos)], dim=-1).flatten(-2)
+            self.states = torch.cat([sin_cos, qvel], dim=-1)
 
         self.n_rollout = n_rollout
         if self.n_rollout:
@@ -132,6 +144,7 @@ def load_dmcontrol_slice_train_val(
     num_pred=0,
     frameskip=0,
     state_based=False,
+    use_sin_cos=False,
     dset_type="traj",
 ):
     dset = DMControlDataset(
@@ -140,6 +153,7 @@ def load_dmcontrol_slice_train_val(
         data_path=data_path,
         normalizer_type=normalizer_type,
         state_based=state_based,
+        use_sin_cos=use_sin_cos,
     )
     dset_train, dset_val, train_slices, val_slices = get_train_val_sliced(
         traj_dataset=dset,

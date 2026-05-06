@@ -22,6 +22,7 @@ class DMControlWrapper(gym.Env):
         self.domain = kwargs['domain']
         self.task = kwargs['task']
         self.state_based = kwargs.get('state_based', False)
+        self.use_sin_cos = kwargs.get('use_sin_cos', False)
         self.dm_env = suite.load(domain_name=self.domain, task_name=self.task)
         scaling_factor = kwargs.get('scaling_factor', 5)
         self.dm_env.physics.model.actuator_ctrlrange *= scaling_factor
@@ -33,6 +34,24 @@ class DMControlWrapper(gym.Env):
         self.action_dim = self.dm_env.action_spec().shape[0]
         self.n_joints = len(self.dm_env.physics.data.qpos)
         self.img_size = 224
+
+    def _encode_state(self, qpos, qvel):
+        """Build state vector, replacing qpos angles with (sin, cos) pairs if enabled."""
+        if self.use_sin_cos:
+            sin_cos = np.array([[np.sin(a), np.cos(a)] for a in qpos]).flatten()
+            return np.concatenate([sin_cos, qvel]).astype(np.float32)
+        return np.concatenate([qpos, qvel]).astype(np.float32)
+
+    def _decode_qpos_qvel(self, state):
+        """Recover (qpos, qvel) from a state vector, handling sin/cos encoding."""
+        n = self.n_joints
+        if self.use_sin_cos:
+            qpos = np.array([np.arctan2(state[2 * j], state[2 * j + 1]) for j in range(n)])
+            qvel = state[2 * n:]
+        else:
+            qpos = state[:n]
+            qvel = state[n:]
+        return qpos, qvel
 
     def _make_obs(self, state):
         if self.state_based:
@@ -58,14 +77,14 @@ class DMControlWrapper(gym.Env):
         self.dm_env.physics.forward()
         qpos = self.dm_env.physics.data.qpos.copy()
         qvel = self.dm_env.physics.data.qvel.copy()
-        init_state = np.concatenate([qpos, qvel], axis=0).astype(np.float32)
+        init_state = self._encode_state(qpos, qvel)
         self.dm_env.reset()
         self.dm_env.physics.data.qpos[:] = rs.uniform(-np.pi, np.pi, size=self.n_joints)
         self.dm_env.physics.data.qvel[:] = rs.uniform(-1, 1, size=self.n_joints)
         self.dm_env.physics.forward()
         qpos = self.dm_env.physics.data.qpos.copy()
         qvel = self.dm_env.physics.data.qvel.copy()
-        goal_state = np.concatenate([qpos, qvel], axis=0).astype(np.float32)
+        goal_state = self._encode_state(qpos, qvel)
         return init_state, goal_state
 
     def update_env(self, env_info):
@@ -75,8 +94,9 @@ class DMControlWrapper(gym.Env):
         self.goal_state = goal_state
 
     def is_success(self, goal_state, cur_state):
-        n = self.n_joints
-        diff = np.abs(goal_state[:n] - cur_state[:n])
+        goal_qpos, _ = self._decode_qpos_qvel(goal_state)
+        cur_qpos, _ = self._decode_qpos_qvel(cur_state)
+        diff = np.abs(goal_qpos - cur_qpos)
         for idx in range(diff.shape[0]):
             diff[idx] = np.mod(diff[idx], 2 * np.pi)
             diff[idx] = min(diff[idx], 2 * np.pi - diff[idx])
@@ -84,8 +104,9 @@ class DMControlWrapper(gym.Env):
         return np.linalg.norm(diff) < 0.1
 
     def eval_state(self, goal_state, cur_state):
-        n = self.n_joints
-        diff = np.abs(goal_state[:n] - cur_state[:n])
+        goal_qpos, _ = self._decode_qpos_qvel(goal_state)
+        cur_qpos, _ = self._decode_qpos_qvel(cur_state)
+        diff = np.abs(goal_qpos - cur_qpos)
         for idx in range(diff.shape[0]):
             diff[idx] = np.mod(diff[idx], 2 * np.pi)
             diff[idx] = min(diff[idx], 2 * np.pi - diff[idx])
@@ -103,12 +124,13 @@ class DMControlWrapper(gym.Env):
         """
         np.random.seed(seed)
         self.reset()
-        self.dm_env.physics.data.qpos[:] = init_state[:len(self.dm_env.physics.data.qpos)]
-        self.dm_env.physics.data.qvel[:] = init_state[len(self.dm_env.physics.data.qpos):]
+        qpos, qvel = self._decode_qpos_qvel(init_state)
+        self.dm_env.physics.data.qpos[:] = qpos
+        self.dm_env.physics.data.qvel[:] = qvel
         self.dm_env.physics.forward()
         qpos = self.dm_env.physics.data.qpos.copy()
         qvel = self.dm_env.physics.data.qvel.copy()
-        state = np.concatenate([qpos, qvel], axis=0).astype(np.float32)
+        state = self._encode_state(qpos, qvel)
         obs = self._make_obs(state)
         return obs, state
 
@@ -116,7 +138,7 @@ class DMControlWrapper(gym.Env):
         time_step = self.dm_env.reset()
         qpos = self.dm_env.physics.data.qpos.copy()
         qvel = self.dm_env.physics.data.qvel.copy()
-        state = np.concatenate([qpos, qvel], axis=0).astype(np.float32)
+        state = self._encode_state(qpos, qvel)
         obs = self._make_obs(state)
         return obs, state
 
@@ -124,9 +146,10 @@ class DMControlWrapper(gym.Env):
         time_step = self.dm_env.step(action)
         qpos = self.dm_env.physics.data.qpos.copy()
         qvel = self.dm_env.physics.data.qvel.copy()
-        state = np.concatenate([qpos, qvel], axis=0).astype(np.float32)
+        state = self._encode_state(qpos, qvel)
         obs = self._make_obs(state)
-        reward = time_step.reward
+        # reward = time_step.reward
+        reward = time_step.reward if time_step.reward is not None else 0.0
         done = time_step.last()
         info = {}
         info["state"] = state

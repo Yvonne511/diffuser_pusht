@@ -4,6 +4,7 @@ kwargs:
   domain: reacher
   task: three_hard
   state_based: true
+  use_sin_cos: true
 
 dataset:
   _target_: "diffuser.datasets_ours.dmcontrol_dset.load_dmcontrol_slice_train_val"
@@ -11,6 +12,7 @@ dataset:
   state_based: true
   n_rollout: null
   normalizer_type: "dummy" # "combined", "linear", "mean_std", "dummy"
+  use_sin_cos: true
   data_path: ${oc.env:DATASET_DIR}/dmcontrol_reacher3
   split_ratio: 0.9
   transform:

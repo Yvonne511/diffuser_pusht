@@ -595,7 +595,7 @@ class dmcontrolReacherRenderer:
 
     def __init__(self, env):
         self.env_name = env
-        self.env = gym.make(f"{env}-v0", domain='reacher', task='three_hard', state_based=True)
+        self.env = gym.make(f"{env}-v0", domain='reacher', task='three_hard', state_based=True, use_sin_cos=True) # TODO: hack
         self._remove_margins = False
 
     def _state_to_ee(self, state):
