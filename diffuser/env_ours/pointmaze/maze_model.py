@@ -235,13 +235,13 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.seed()
         self.reset_to_state = None
         
-    def sample_random_xy(self):
+    def sample_random_xy(self, rs):
         all_cells = [(i, j) 
             for i in range(self.maze_arr.shape[0]) 
             for j in range(self.maze_arr.shape[1]) 
             if self.maze_arr[i, j] != WALL]
-        init_ij = all_cells[self.random_state.randint(len(all_cells))]
-        init_xy = self.add_noise(self.ij_to_xy(init_ij))
+        init_ij = all_cells[rs.randint(len(all_cells))]
+        init_xy = self.add_noise(self.ij_to_xy(init_ij), rng=rs)
         return init_xy
 
     def ij_to_xy(self, ij):
@@ -250,10 +250,9 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         y = i * self._maze_unit - self._offset_y
         return x, y
 
-    def add_noise(self, xy):
-        rs = self.random_state
-        random_x = rs.uniform(low=-self._noise, high=self._noise) * self._maze_unit / 4
-        random_y = rs.uniform(low=-self._noise, high=self._noise) * self._maze_unit / 4
+    def add_noise(self, xy, rng):
+        random_x = rng.uniform(low=-self._noise, high=self._noise) * self._maze_unit / 4
+        random_y = rng.uniform(low=-self._noise, high=self._noise) * self._maze_unit / 4
         return xy[0] + random_x, xy[1] + random_y
 
     def step(self, action):
@@ -435,7 +434,14 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle, offline_env.OfflineEnv):
         self.set_state(init_state[:2],init_state[2:])
         img = self.sim.render(224, 224)
         assert self.sim.render_contexts != 0, "Rendering failed"
-        self.sim.render_contexts[0].cam.azimuth = 90
-        self.sim.render_contexts[0].cam.elevation = -90
+        cam = self.sim.render_contexts[0].cam
+        cam.azimuth = 90
+        cam.elevation = -90
+        # mujoco_py 2.0 computes lookat from CoM (y=2.5 for U_MAZE); 2.1+ uses
+        # bounding-box center (y=3.0). Fix explicitly so rendering matches across versions.
+        h = self.maze_arr.shape[1]
+        cam.lookat[0] = self.maze_arr.shape[0] / 2.0 + 0.5
+        cam.lookat[1] = h / 2.0 + 0.5
+        cam.lookat[2] = 0.0
         img1 = self.sim.render(224, 224)
         return img, img1

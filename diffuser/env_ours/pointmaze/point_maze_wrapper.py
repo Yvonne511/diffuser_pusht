@@ -31,7 +31,7 @@ class PointMazeWrapper(MazeEnv):
 
         def generate_state():
             if self.spec.id in ('point_maze_medium-v0', 'point_maze_large-v0', 'point_maze_giant-v0'):
-                x, y = self.sample_random_xy()
+                x, y = self.sample_random_xy(rs)
                 state = np.array([
                     x, 
                     y,
@@ -41,7 +41,7 @@ class PointMazeWrapper(MazeEnv):
             else: # U_MAZE
                 valid = False
                 while not valid:
-                    x, y = self.sample_random_xy()
+                    x, y = self.sample_random_xy(rs)
                     valid = ((0.5 <= x <= 1.1 or 2.5 <= x <= 3.1) and (0.5 <= y <= 3.1))\
                             or ((1.1 < x < 2.5) and (2.5 <= y <= 3.1))
                 state = np.array([
